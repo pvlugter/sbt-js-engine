@@ -368,6 +368,56 @@ object SbtJsTask extends AutoPlugin {
   }
 
   /**
+   * Create a source dependency between two source file tasks.
+   * The outputs from one task will become sources for the other task.
+   *
+   * @param fromTask the task that will produce outputs
+   * @param toTask the task that will process the produced sources
+   * @return a sequence of settings that wire the tasks together
+   */
+  def addSourceDependency(fromTask: TaskKey[Seq[File]], toTask: TaskKey[Seq[File]]): Seq[Setting[_]] = {
+    val unscoped: Seq[Setting[_]] = Seq(
+      unmanagedSourceDirectories in toTask += (resourceManaged in fromTask).value,
+      unmanagedSources in toTask ++= fromTask.value
+    )
+    inConfig(Assets)(unscoped) ++ inConfig(TestAssets)(unscoped)
+  }
+
+  /**
+   * Create a source dependency between tasks.
+   * `addSourceDependency(from -> to)`
+   *
+   * @param dependency a tuple of the producing and consuming tasks
+   * @return a sequence of settings that wire the tasks together
+   */
+  def addSourceDependency(dependency: (TaskKey[Seq[File]], TaskKey[Seq[File]])): Seq[Setting[_]] = {
+    addSourceDependency(dependency._1, dependency._2)
+  }
+
+  /**
+   * Create source dependencies between tasks.
+   * `addSourceDependencies(a -> b, c -> d)`
+   *
+   * @param dependencies tuples of the producing and consuming tasks
+   * @return a sequence of settings that wire the tasks together
+   */
+  def addSourceDependencies(dependencies: (TaskKey[Seq[File]], TaskKey[Seq[File]])*): Seq[Setting[_]] = {
+    dependencies flatMap addSourceDependency
+  }
+
+  /**
+   * Create source dependencies between tasks.
+   * `addSourceDependencies(Seq(a, b) -> c)`
+   *
+   * @param dependencies a tuple of the producing tasks and the consuming task
+   * @return a sequence of settings that wire the tasks together
+   */
+  def addSourceDependencies(dependencies: (Seq[TaskKey[Seq[File]]], TaskKey[Seq[File]])): Seq[Setting[_]] = {
+    val (fromTasks, toTask) = dependencies
+    fromTasks flatMap { fromTask => addSourceDependency(fromTask, toTask) }
+  }
+
+  /**
    * Execute some arbitrary JavaScript.
    *
    * This method is intended to assist in building SBT tasks that execute generic JavaScript.  For example:
